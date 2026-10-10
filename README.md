@@ -4,7 +4,7 @@
 
 A macOS menu bar app that shows your Claude Code (Pro / Max) usage limits in real time.
 
-Menu bar: `5h 8% · 7d 41%` (5-hour window / weekly window, percent used)
+Menu bar: `Claude 5h 8% · 7d 41%` (5-hour window / weekly window, percent used; the `Claude` prefix is always shown so the app is distinguishable from a Codex meter placed next to it)
 Dropdown: a bar per window with time until reset, per-model weekly windows, extra usage spend, last update, refresh interval, launch at login, quit
 
 Source only. No signed binaries are distributed; build it yourself with the steps below.
