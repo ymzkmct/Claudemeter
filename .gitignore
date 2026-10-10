@@ -1,0 +1,7 @@
+.build/
+build/
+*.xcodeproj
+.swiftpm/
+.DS_Store
+# local working notes (not part of the project)
+tasks/
