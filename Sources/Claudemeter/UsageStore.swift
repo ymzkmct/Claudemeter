@@ -265,10 +265,14 @@ final class UsageStore {
         return snapshot.maxUtilization >= Self.warningThreshold || needsReauth
     }
 
-    /// Text shown next to the menu bar icon, e.g. "5h 8% · 7d 41%".
+    /// Always shown first in the menu bar so this app is distinguishable from
+    /// sibling meters (e.g. a Codex one) that use the same layout.
+    static let menuBarPrefix = "Claude"
+
+    /// Text shown next to the menu bar icon, e.g. "Claude 5h 8% · 7d 41%".
     var menuBarTitle: String {
         guard let snapshot else {
-            return status == .refreshing ? "Claude …" : "Claude –"
+            return "\(Self.menuBarPrefix) \(status == .refreshing ? "…" : "–")"
         }
         var parts: [String] = []
         if let five = snapshot.fiveHour { parts.append("5h \(five.percentText)") }
@@ -276,6 +280,6 @@ final class UsageStore {
         if parts.isEmpty, let first = snapshot.windows.first {
             parts.append("\(first.shortLabel) \(first.percentText)")
         }
-        return parts.joined(separator: " · ")
+        return "\(Self.menuBarPrefix) " + parts.joined(separator: " · ")
     }
 }
