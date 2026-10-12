@@ -23,6 +23,8 @@ final class UsageStore {
     static let activityDebounce: TimeInterval = 3
     static let pollIntervalOptions: [TimeInterval] = [30, 60, 300]
     static let warningThreshold: Double = 80
+    /// After a failed Keychain read (typically a dismissed dialog) wait this long before trying again.
+    static let keychainRetryInterval: TimeInterval = 300
 
     private(set) var snapshot: UsageSnapshot?
     private(set) var status: Status = .idle
@@ -155,7 +157,7 @@ final class UsageStore {
     private func performRefresh(reason: RefreshReason) async {
         log.info("refresh start reason=\(reason.rawValue, privacy: .public)")
         do {
-            let item = try keychain.readItem()
+            let item = try await keychain.readItem()
             var credentials = try CredentialsJSON.parse(item.data)
             planLabel = credentials.planLabel
 
@@ -171,7 +173,7 @@ final class UsageStore {
             } catch UsageClient.Error.unauthorized where !refreshedThisCycle {
                 // Token was rejected although not expired by our clock: refresh once and retry.
                 // (Re-read the Keychain in case `claude` rotated the token meanwhile.)
-                let latest = try keychain.readItem()
+                let latest = try await keychain.readItem()
                 let latestCredentials = try CredentialsJSON.parse(latest.data)
                 let refreshed = try await refreshCredentials(item: latest, credentials: latestCredentials)
                 response = try await client.fetch(accessToken: refreshed.accessToken)
@@ -185,6 +187,11 @@ final class UsageStore {
             nextAllowedFetch = retryAfter ?? Date(timeIntervalSinceNow: 300)
             status = .error(UsageClient.Error.rateLimited(retryAfter: retryAfter).localizedDescription)
             log.error("refresh rate limited until \(self.nextAllowedFetch)")
+        } catch let error as CredentialsError where error.isKeychainAccessFailure {
+            // Most likely a Keychain dialog the user dismissed: wait before raising it again.
+            nextAllowedFetch = Date(timeIntervalSinceNow: Self.keychainRetryInterval)
+            status = .error(error.localizedDescription)
+            log.error("keychain access failed, next attempt at \(self.nextAllowedFetch): \(error.localizedDescription)")
         } catch {
             status = .error(error.localizedDescription)
             log.error("refresh failed: \(error.localizedDescription)")
@@ -231,7 +238,7 @@ final class UsageStore {
                 accessToken: result.accessToken,
                 refreshToken: result.refreshToken,
                 expiresAt: result.expiresAt)
-            try keychain.write(merged, to: item)
+            try await keychain.write(merged, to: item)
             writeBackWarning = nil
             log.info("token refreshed and written back to keychain")
         } catch {
