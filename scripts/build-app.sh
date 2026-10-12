@@ -30,7 +30,7 @@ if [ -z "$IDENTITY" ]; then
     | sed -n 's/.*"\(Apple Development: [^"]*\)".*/\1/p' | head -1 || true)
 fi
 if [ -z "$IDENTITY" ]; then
-  echo "note: no Apple Development identity found; signing ad-hoc. The Keychain 'Always Allow' grant resets on every rebuild." >&2
+  echo "note: no Apple Development identity found; signing ad-hoc." >&2
   IDENTITY="-"
 fi
 codesign --force --sign "$IDENTITY" "$OUT"

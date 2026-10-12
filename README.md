@@ -40,9 +40,11 @@ scripts/build-app.sh --install
 
 Builds `build/Claudemeter.app`, copies it to `/Applications` (override with `INSTALL_DIR`) and launches it. Without `--install` it only builds.
 
-On first launch macOS asks whether the app may read the Keychain item. Choose "Always Allow".
+Keychain access goes through `/usr/bin/security`, the same tool the `claude` CLI uses for this item, so no permission is tied to the app itself and nothing is asked on first launch or after a rebuild.
 
-Signing: an `Apple Development` certificate is used if one exists, otherwise the app is ad-hoc signed. With ad-hoc signing the signature changes on every build, so the Keychain "Always Allow" grant is asked for again after each rebuild.
+If a dialog saying "security wants to access key \"Claude Code-credentials\"" with a password field appears, the item has lost `apple-tool:` from its ACL partition list (this happens when another app rewrites the item through Security.framework; see [anthropics/claude-code#62213](https://github.com/anthropics/claude-code/issues/62213)). Enter the login keychain password and choose "Always Allow" once; both the `claude` CLI and Claudemeter then stay silent until something rewrites the item again. Claudemeter never does that: it updates the item only through `security`, which keeps `apple-tool:` in place.
+
+Signing: an `Apple Development` certificate is used if one exists, otherwise the app is ad-hoc signed. Either way the Keychain does not care, because the item is only ever touched by `/usr/bin/security`.
 
 If Xcode is not installed and `swift build` from the Command Line Tools is broken, `scripts/build-app-clt-fallback.sh` compiles with bare `swiftc` against the macOS 15 SDK bundled with the Command Line Tools. It is a workaround; installing Xcode is the real fix.
 
@@ -64,6 +66,7 @@ log stream --predicate 'subsystem == "jp.ymzkmct.Claudemeter"' --level info
 
 - Only two hosts are contacted: `api.anthropic.com` (usage) and `platform.claude.com` (token refresh). HTTPS, TLS 1.2+, redirects are refused so the bearer token is never sent to another host. No cookies, no disk cache.
 - Reads: the Keychain item `Claude Code-credentials` created by Claude Code at login. No other Keychain item is touched.
+- All Keychain access runs `/usr/bin/security` as a child process (the tool the `claude` CLI uses for the same item). When writing back, the credential JSON is passed on that short-lived process's command line, so it is visible to other processes of the same user for the few milliseconds the process runs.
 - Writes: the token fields of that same item after a refresh. All other keys are preserved. The update is restricted to the item that was read (matched by account).
 - `~/.claude/projects` is watched through FSEvents for path changes only. Session transcripts are never read.
 - Tokens never appear in logs, the UI, or UserDefaults. UserDefaults only holds the display snapshot (percentages, reset times).
